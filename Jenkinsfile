@@ -39,15 +39,12 @@ pipeline {
         stage('Deliver') { 
             agent {
                 docker {
-                    image 'python:3.10-slim'
+                    image 'cdrx/pyinstaller-linux:python3.10'
                     args '-u root'
                 }
             }
             steps {
-                sh '''
-                    pip install pyinstaller
-                    pyinstaller --onefile sources/add2vals.py
-                '''
+                sh 'pyinstaller --onefile sources/add2vals.py'
             }
             post {
                 success {
@@ -55,5 +52,6 @@ pipeline {
                 }
             }
         }
+
     }
 }
