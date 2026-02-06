@@ -1,47 +1,24 @@
 pipeline {
-    agent any
-
-    options {
-        skipStagesAfterUnstable()
-    }
-
+    agent none
     stages {
-        stage('Prepare') {
-            steps {
-                sh '''
-                if ! command -v python3 &> /dev/null; then
-                    echo "Installing Python 3..."
-                    if command -v apt-get &> /dev/null; then
-                        sudo apt-get update -qq
-                        sudo apt-get install -y python3 python3-pip python3-venv
-                    elif command -v yum &> /dev/null; then
-                        sudo yum install -y python3 python3-pip
-                    elif command -v dnf &> /dev/null; then
-                        sudo dnf install -y python3 python3-pip
-                    else
-                        echo "Unsupported package manager. Please install Python 3 manually."
-                        exit 1
-                    fi
-                fi
-                python3 --version
-                pip3 --version || true
-                '''
-            }
-        }
-
         stage('Build') {
+            agent {
+                docker {
+                    image 'python:2-alpine'
+                }
+            }
             steps {
-                sh 'python3 -m py_compile sources/add2vals.py sources/calc.py'
+                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
             }
         }
-
         stage('Test') {
+            agent {
+                docker {
+                    image 'qnib/pytest'
+                }
+            }
             steps {
-                sh '''
-                pip3 install --user pytest
-                mkdir -p test-reports
-                pytest -v --junitxml=test-reports/results.xml sources/test_calc.py
-                '''
+                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py'
             }
             post {
                 always {
@@ -49,17 +26,18 @@ pipeline {
                 }
             }
         }
-
-        stage('Deliver') {
+        stage('Deliver') { 
+            agent {
+                docker {
+                    image 'cdrx/pyinstaller-linux:python2' 
+                }
+            }
             steps {
-                sh '''
-                pip3 install --user pyinstaller
-                pyinstaller --onefile sources/add2vals.py
-                '''
+                sh 'pyinstaller --onefile sources/add2vals.py' 
             }
             post {
                 success {
-                    archiveArtifacts 'dist/add2vals'
+                    archiveArtifacts 'dist/add2vals' 
                 }
             }
         }
