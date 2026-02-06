@@ -4,21 +4,30 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'python:2-alpine'
+                    image 'python:3.10-slim'
+                    args '-u root'
                 }
             }
             steps {
-                sh 'python -m py_compile sources/add2vals.py sources/calc.py'
+                sh '''
+                    python -m py_compile sources/add2vals.py sources/calc.py
+                '''
             }
         }
+
         stage('Test') {
             agent {
                 docker {
-                    image 'qnib/pytest'
+                    image 'python:3.10-slim'
+                    args '-u root'
                 }
             }
             steps {
-                sh 'py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py'
+                sh '''
+                    pip install pytest pytest-cov
+                    mkdir -p test-reports
+                    py.test --verbose --junit-xml test-reports/results.xml sources/test_calc.py
+                '''
             }
             post {
                 always {
@@ -26,18 +35,23 @@ pipeline {
                 }
             }
         }
+
         stage('Deliver') { 
             agent {
                 docker {
-                    image 'cdrx/pyinstaller-linux:python2' 
+                    image 'python:3.10-slim'
+                    args '-u root'
                 }
             }
             steps {
-                sh 'pyinstaller --onefile sources/add2vals.py' 
+                sh '''
+                    pip install pyinstaller
+                    pyinstaller --onefile sources/add2vals.py
+                '''
             }
             post {
                 success {
-                    archiveArtifacts 'dist/add2vals' 
+                    archiveArtifacts artifacts: 'dist/add2vals', fingerprint: true
                 }
             }
         }
